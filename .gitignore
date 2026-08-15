@@ -1,0 +1,15 @@
+# build artifacts / binaries
+*.exe
+*.dll
+
+# logs
+*.log
+dbgcap/
+
+# local scratch
+*.bin
+VoiSona.exe.orig
+*.json.txt
+login_response*
+fresh_response.json
+act_req*.json
