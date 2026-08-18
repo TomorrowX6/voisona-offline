@@ -9,7 +9,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"syscall"
 	"time"
 )
 
@@ -27,8 +26,7 @@ func main() {
 	} else {
 		mock := filepath.Join(dir, "mock_server.exe")
 		if _, statErr := os.Stat(mock); statErr == nil {
-			cmd := exec.Command(mock)
-			cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
+			cmd := exec.Command(mock) // console window stays visible (shows mock logs)
 			_ = cmd.Start()
 			time.Sleep(1500 * time.Millisecond)
 		}

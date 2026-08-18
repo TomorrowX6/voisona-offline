@@ -14,6 +14,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	_ "embed"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -24,7 +25,10 @@ import (
 )
 
 //go:embed user_info_merged.json
-var mergedUserInfo []byte // pre-merged user_info (42 licenses, 0 trials)
+var mergedUserInfo []byte // pre-merged TSSinger user_info (42 licenses, 0 trials)
+
+//go:embed user_info_talker_merged.json
+var mergedTalkerUserInfo []byte // pre-merged TSTalker user_info (1 license)
 
 func b64url(b []byte) string {
 	return base64.RawURLEncoding.EncodeToString(b)
@@ -84,18 +88,25 @@ func handler(w http.ResponseWriter, r *http.Request) {
 
 	switch {
 	case r.Method == "GET" && strings.Contains(path, "news"):
+		log.Printf("[mock] GET %s -> []", path)
 		send(w, []byte("[]"))
 	case r.Method == "POST" && strings.Contains(path, "/auth/token/"):
 		// login and verify both return the catalog with fresh tokens.
 		// login sends {"email":...}; verify sends {"token":"<jwt>"} whose
 		// payload carries the email.
+		body, _ := io.ReadAll(r.Body)
 		var req map[string]interface{}
-		json.NewDecoder(r.Body).Decode(&req)
+		json.Unmarshal(body, &req)
 		email := ""
 		if e, ok := req["email"].(string); ok {
 			email = e
 		} else if t, ok := req["token"].(string); ok {
 			email = jwtEmail(t)
+		}
+		// choose catalog by product type (TSSinger vs TSTalker)
+		ui := mergedUserInfo
+		if ty, ok := req["type"].(string); ok && ty == "TSTalker" {
+			ui = mergedTalkerUserInfo
 		}
 		now := time.Now().Unix()
 		access := makeJWT("voisona-offline", map[string]interface{}{
@@ -107,27 +118,31 @@ func handler(w http.ResponseWriter, r *http.Request) {
 			"jti": randomHex(16), "email": email,
 		})
 		resp := []byte(`{"refresh":"` + refresh + `","access":"` + access +
-			`","user_info":` + string(mergedUserInfo) + `}`)
-		log.Printf("[mock] POST %s email=%s", path, email)
+			`","user_info":` + string(ui) + `}`)
+		log.Printf("[mock] POST %s email=%s body=%s", path, email, string(body))
 		send(w, resp)
 	default:
 		// /auth/activate/  /auth/activate/voice/  /editors/...
 		// -> empty JSON object (no "code" key = success)
+		log.Printf("[mock] %s %s -> {}", r.Method, path)
 		send(w, []byte("{}"))
 	}
 }
 
 func main() {
-	// log to a file next to the exe (a GUI app has no console)
+	// log to BOTH the console (visible window) and a file next to the exe
 	exe, _ := os.Executable()
 	logPath := filepath.Join(filepath.Dir(exe), "mock_server.log")
 	if f, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644); err == nil {
-		log.SetOutput(f)
+		log.SetOutput(io.MultiWriter(os.Stdout, f))
 		defer f.Close()
+	} else {
+		log.SetOutput(os.Stdout)
 	}
+	log.SetFlags(log.Ltime) // "15:04:05" prefix, like the python mock
 	addr := "127.0.0.1:18080"
 	http.HandleFunc("/", handler)
-	log.Printf("[mock] listening on http://%s/ (voices embedded=%d bytes)", addr, len(mergedUserInfo))
+	log.Printf("[mock] listening on http://%s/", addr)
 	if err := http.ListenAndServe(addr, nil); err != nil {
 		log.Fatalf("[mock] %v", err)
 	}
