@@ -18,7 +18,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -130,15 +129,8 @@ func handler(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-	// log to BOTH the console (visible window) and a file next to the exe
-	exe, _ := os.Executable()
-	logPath := filepath.Join(filepath.Dir(exe), "mock_server.log")
-	if f, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644); err == nil {
-		log.SetOutput(io.MultiWriter(os.Stdout, f))
-		defer f.Close()
-	} else {
-		log.SetOutput(os.Stdout)
-	}
+	// log to the console only (no log file next to the exe)
+	log.SetOutput(os.Stdout)
 	log.SetFlags(log.Ltime) // "15:04:05" prefix, like the python mock
 	addr := "127.0.0.1:18080"
 	http.HandleFunc("/", handler)
