@@ -1,0 +1,46 @@
+name: Build mock_server.exe
+
+# Only builds the offline mock API server (go_offline/mock -> mock_server.exe).
+# The launcher is intentionally NOT built here.
+on:
+  push:
+    branches: [ master ]
+    paths:
+      - 'go_offline/mock/**'
+      - '.github/workflows/build.yml'
+  pull_request:
+    paths:
+      - 'go_offline/mock/**'
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build mock_server.exe
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: go_offline/mock
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go_offline/mock/go.mod
+
+      - name: Build mock_server.exe
+        run: go build -o mock_server.exe .
+
+      - name: Verify embedded catalog
+        shell: pwsh
+        run: |
+          $b = [System.IO.File]::ReadAllBytes("mock_server.exe")
+          $t = [System.Text.Encoding]::UTF8.GetString($b)
+          if (-not $t.Contains("techno-sp_ja_JP_f855_tts")) { throw "f855 voice not embedded in mock_server.exe" }
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mock_server-exe
+          path: go_offline/mock/mock_server.exe
