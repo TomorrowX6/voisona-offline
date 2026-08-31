@@ -69,6 +69,19 @@ foreach ($va in @(0x140b9a75d, 0x140b9a77c, 0x140b978bb, 0x140b978db)) {
   for ($i=0; $i -lt 6; $i++) { $nb[$o+$i] = 0x90 }
 }
 
+# ---- login op: always return 0 (success) ----
+# Analog of VoiSona's 0x140A01F31 patch ("mov rax,rdi" -> "xor eax,eax; nop").
+# Without this, the login wrapper can return error 7 when the runtime
+# authorization check (0x140b95fb0) fails, so the engine never registers
+# the voice's EmotionList (STY list). Forcing 0 establishes the auth state.
+$loginopRet = FileOff 0x140b9f5b1
+if ($nb[$loginopRet] -ne 0x48 -or $nb[$loginopRet+1] -ne 0x8B -or $nb[$loginopRet+2] -ne 0xC7) {
+  throw "login op return bytes mismatch at 0x140b9f5b1"
+}
+$nb[$loginopRet]   = 0x33  # xor eax, eax
+$nb[$loginopRet+1] = 0xC0
+$nb[$loginopRet+2] = 0x90  # nop
+
 [System.IO.File]::WriteAllBytes($out, $nb)
 "WROTE $out ($newLen bytes, sections=$($numSections+1))"
 "newUrl VMA = 0x{0:X}" -f $target
