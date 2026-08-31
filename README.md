@@ -1,7 +1,3 @@
-online tutorial：
-
-You only need to copy VoiSona.exe to the installation directory.
-
 offline tutorial：
 
 1. You must download the voicebank first.
