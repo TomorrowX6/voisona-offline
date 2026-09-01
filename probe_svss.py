@@ -13,21 +13,7 @@ KNOWN_JA_SVSS = {
     'f868','f972','f973','f974','f975','m804','m805','m867','m868','t014'
 }
 
-QUICK_VERSIONS = ["1.0.0","2.0.0","2.0.1","2.1.0","2.2.0","3.0.0"]
-FULL_VERSIONS = ["1.0.0","1.0.1","1.0.2","1.0.3","1.1.0","1.1.1","1.1.2","1.1.3",
-    "1.2.0","1.2.1","1.2.2","1.2.3","1.3.0","1.3.1","1.3.2","1.3.3",
-    "1.4.0","1.4.1","1.4.2","1.4.3","1.5.0","1.5.1","1.5.2","1.5.3",
-    "1.6.0","1.6.1","1.6.2","1.6.3","1.7.0","1.7.1","1.7.2","1.7.3",
-    "1.8.0","1.8.1","1.8.2","1.8.3","1.9.0","1.9.1","1.9.2","1.9.3",
-    "2.0.0","2.0.1","2.0.2","2.0.3","2.1.0","2.1.1","2.1.2","2.1.3",
-    "2.2.0","2.2.1","2.2.2","2.2.3","2.3.0","2.3.1","2.3.2","2.3.3",
-    "2.4.0","2.4.1","2.4.2","2.4.3","2.5.0","2.5.1","2.5.2","2.5.3",
-    "2.6.0","2.6.1","2.6.2","2.6.3","2.7.0","2.7.1","2.7.2","2.7.3",
-    "2.8.0","2.8.1","2.8.2","2.8.3","2.9.0","2.9.1","2.9.2","2.9.3",
-    "3.0.0","3.0.1","3.0.2","3.0.3","3.1.0","3.1.1","3.1.2","3.1.3",
-    "3.2.0","3.2.1","3.2.2","3.2.3","3.3.0","3.3.1","3.3.2","3.3.3",
-    "3.4.0","3.4.1","3.4.2","3.4.3","3.5.0","3.5.1","3.5.2","3.5.3",
-    "4.0.0","4.0.1","4.0.2","4.0.3"]
+VERSIONS = ["1.0.0","2.0.0","2.0.1","2.1.0"]
 
 def head(url):
     req = urllib.request.Request(url, method="HEAD")
@@ -40,15 +26,9 @@ def head(url):
     except Exception:
         return None
 
-def check_exist(vid):
-    for ver in QUICK_VERSIONS:
-        if head(f"{CDN}/{vid}/{ver}/{vid}.tsnvoice") == 200:
-            return (vid, True)
-    return (vid, False)
-
 def probe_versions(vid):
     found = []
-    for ver in FULL_VERSIONS:
+    for ver in VERSIONS:
         if head(f"{CDN}/{vid}/{ver}/{vid}.tsnvoice") == 200:
             found.append(ver)
     found.sort(key=lambda x: tuple(int(p) for p in x.split(".")))
@@ -59,24 +39,17 @@ def main():
     ids = [f"techno-sp_ja_JP_f{code}_svss" for code in range(start, end + 1)]
     print(f"[*] slice f{start}-f{end} ({len(ids)} ids) probing ...", flush=True)
 
-    existing = []
-    with concurrent.futures.ThreadPoolExecutor(max_workers=60) as ex:
-        for vid, ok in ex.map(check_exist, ids):
-            if ok:
-                existing.append(vid)
-    print(f"[*] existence hits: {len(existing)}", flush=True)
-
     results = {}
     with concurrent.futures.ThreadPoolExecutor(max_workers=60) as ex:
-        for vid, vers in ex.map(probe_versions, existing):
-            results[vid] = vers
+        for vid, vers in ex.map(probe_versions, ids):
+            if vers:
+                results[vid] = vers
 
     report = []
     for vid in sorted(results):
         code = vid.replace("techno-sp_ja_JP_","").replace("_svss","")
         tag = "NEW <-- 未发售候选" if code not in KNOWN_JA_SVSS else "known"
-        latest = results[vid][-1] if results[vid] else "-"
-        line = f"  {vid}  latest={latest}  versions={len(results[vid])}  [{tag}]"
+        line = f"  {vid}  versions={','.join(results[vid])}  [{tag}]"
         print(line, flush=True)
         report.append(line)
 
