@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # 用 CDN HEAD 探测 VoiSona SONG(_svss) 声库 ID，切片扫描（供 GitHub Actions 并行调用）。
-# 用法: python probe_svss.py <start> <end>
-#   start/end = f 编号范围（含），例如 600 649 扫 techno-sp_ja_JP_f600..f649_svss
+# 用法: python probe_svss.py <prefix> <start> <end>
+#   prefix = f/m/t, start/end = 编号范围（含），例如 f 600 649 扫 techno-sp_ja_JP_f600..f649_svss
 import sys, json, urllib.request, urllib.error, concurrent.futures
 
 CDN = "https://cdn.voisona.com/voice"
@@ -13,7 +13,7 @@ KNOWN_JA_SVSS = {
     'f868','f972','f973','f974','f975','m804','m805','m867','m868','t014'
 }
 
-VERSIONS = ["1.0.0","2.0.0","2.0.1","2.1.0"]
+VERSIONS = ["1.0.0","2.0.0","2.0.1","2.1.0","2.2.0"]
 
 def head(url):
     req = urllib.request.Request(url, method="HEAD")
@@ -35,9 +35,11 @@ def probe_versions(vid):
     return (vid, found)
 
 def main():
-    start = int(sys.argv[1]); end = int(sys.argv[2])
-    ids = [f"techno-sp_ja_JP_f{code}_svss" for code in range(start, end + 1)]
-    print(f"[*] slice f{start}-f{end} ({len(ids)} ids) probing ...", flush=True)
+    prefix = sys.argv[1]
+    start = int(sys.argv[2]); end = int(sys.argv[3])
+    ids = [f"techno-sp_ja_JP_{prefix}{code:03d}_svss" for code in range(start, end + 1)]
+    slabel = f"{prefix}{start:03d}-{prefix}{end:03d}"
+    print(f"[*] slice {slabel} ({len(ids)} ids) probing ...", flush=True)
 
     results = {}
     with concurrent.futures.ThreadPoolExecutor(max_workers=60) as ex:
@@ -53,8 +55,9 @@ def main():
         print(line, flush=True)
         report.append(line)
 
-    with open("probe_result.json", "w", encoding="utf-8") as f:
-        json.dump({"slice": [start, end], "results": results}, f, ensure_ascii=False, indent=2)
+    outname = f"probe_result_{slabel.replace('-', '_')}.json"
+    with open(outname, "w", encoding="utf-8") as f:
+        json.dump({"slice": slabel, "results": results}, f, ensure_ascii=False, indent=2)
 
     if not report:
         print("  (no hits in this slice)", flush=True)
