@@ -1,0 +1,40 @@
+name: Probe song voice IDs
+
+# 用 CDN HEAD 探测 techno-sp_ja_JP_fXXX_svss 的 ID（切片并行）。
+# 手动触发，8 个并行 job 各扫一段 f600-f999。
+on:
+  workflow_dispatch:
+
+jobs:
+  probe:
+    name: Probe f${{ matrix.start }}-f${{ matrix.end }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { start: 600, end: 649 }
+          - { start: 650, end: 699 }
+          - { start: 700, end: 749 }
+          - { start: 750, end: 799 }
+          - { start: 800, end: 849 }
+          - { start: 850, end: 899 }
+          - { start: 900, end: 949 }
+          - { start: 950, end: 999 }
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Probe slice
+        run: python probe_svss.py ${{ matrix.start }} ${{ matrix.end }}
+
+      - name: Upload result
+        uses: actions/upload-artifact@v4
+        with:
+          name: probe-f${{ matrix.start }}-f${{ matrix.end }}
+          path: probe_result.json
